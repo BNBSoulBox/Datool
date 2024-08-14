@@ -1,25 +1,30 @@
+import os
+from dotenv import load_dotenv
 import discord
 from discord.ext import tasks
 import pandas as pd
-import os
 from cachetools import TTLCache
 import plotly.express as px
 import io
-from datetime import datetime, timezone
+from datetime import datetime
 import asyncio
 import platform
 
+# Load environment variables
+load_dotenv()
+
 # Discord bot token
-DISCORD_BOT_TOKEN = 'MTI3MTE4OTY5MzE2NTM0Mjc1Ng.Gwikl5.2QfVdf1ONOQVSzfVAia-k7Fa3kLO3agZ6RwKf4'
+DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 
 # Discord channel ID
-CHANNEL_ID = 1262432301569278023
+CHANNEL_ID = int(os.getenv('CHANNEL_ID'))
 
 # Path to the CSV file
-CSV_FILE_PATH = "15m_rsi.csv"
+CSV_FILE_PATH = os.getenv('CSV_FILE_PATH', "15m_rsi.csv")
 
 # Cache setup
-cache = TTLCache(maxsize=1000, ttl=1800)  # 30-minute TTL
+CACHE_TTL = int(os.getenv('CACHE_TTL', 1800))  # 30-minute TTL by default
+cache = TTLCache(maxsize=1000, ttl=CACHE_TTL)
 
 # Create Discord client
 intents = discord.Intents.default()
@@ -53,7 +58,7 @@ def create_scatter_plot(df, selected_symbols):
     img_bytes = fig.to_image(format="png")
     return io.BytesIO(img_bytes)
 
-@tasks.loop(minutes=30)
+@tasks.loop(minutes=int(os.getenv('ALERT_INTERVAL', 30)))
 async def send_alerts():
     try:
         df = load_and_process_data()
@@ -63,7 +68,7 @@ async def send_alerts():
         oversold_df = latest_df[latest_df['15m RSI'] < 30].sort_values(by='15m RSI', ascending=True)
         
         embed = discord.Embed(title="RSI Alert", color=0x00ff00)
-        embed.set_thumbnail(url="https://example.com/your_logo.png")  # Replace with your logo URL
+        embed.set_thumbnail(url=os.getenv('LOGO_URL', "https://example.com/your_logo.png"))
         
         if not overbought_df.empty:
             overbought_list = [f"{row['Symbol']} (Power: {row['15m RSI']:.2f})" for _, row in overbought_df.iterrows()]
